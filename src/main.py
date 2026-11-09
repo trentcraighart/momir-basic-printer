@@ -11,6 +11,7 @@ import configparser
 import enum
 import logging
 import signal
+import string
 import sys
 import threading
 import time
@@ -128,6 +129,8 @@ class MomirApp:
             'done_status_seconds', fallback=2.0)
         self._no_cmc_status_template: str = app_config.get(
             'no_cmc_status_template', fallback='No CMC {cmc}')
+        self._no_name_status_template: str = app_config.get(
+            'no_name_status_template', fallback='No card named {name}')
         self._shutdown_join_timeout_seconds: float = app_config.getfloat(
             'shutdown_join_timeout_seconds', fallback=5)
 
@@ -315,6 +318,53 @@ class MomirApp:
         finally:
             self._set_state(AppState.IDLE)
 
+    def _fetch_and_print(self, name: string) -> None:
+        try:
+            # --- fetch ---
+            self._set_state(AppState.FETCHING)
+            self._set_status(self._fetching_status)
+            if self._cancel_event.is_set():
+                self._set_status(self._cancelled_status)
+                return
+
+            card = self.scryfall.get_card_by_name(name)
+
+            if card is None:
+                self._set_status(self._no_name_status_template.format(name=name))
+                return
+
+            if self._cancel_event.is_set():
+                self._set_status(self._cancelled_status)
+                return
+
+            # --- print ---
+            self._set_state(AppState.PRINTING)
+            card_name = card.get("name", "Unknown")
+            self._set_status(self._printing_status)
+            logger.info(f"Printing: {card_name}")
+
+            self.printer.print_card(card, cancel_event=self._cancel_event)
+            if self._cancel_event.is_set():
+                self._set_status(self._cancelled_status)
+                logger.info(f"Printing cancelled: {card_name}")
+                return
+
+            self._set_status(self._done_status)
+            if self._done_status_seconds > 0:
+                time.sleep(self._done_status_seconds)
+            self._set_status(self._ready_status)
+            logger.info(f"Printed: {card_name}")
+
+        except Exception as exc:
+            if self._cancel_event.is_set():
+                logger.info(f"Fetch/print cancelled: {exc}")
+                self._set_status(self._cancelled_status)
+            else:
+                logger.error(f"Fetch/print error: {exc}")
+                self._set_status(self._error_status)
+        finally:
+            self._set_state(AppState.IDLE)
+
     # ------------------------------------------------------------------
     # Main run loop
     # ------------------------------------------------------------------
@@ -322,6 +372,8 @@ class MomirApp:
     def run(self) -> None:
         """Attach callbacks and block until shutdown."""
         logger.info("Momir Basic Printer started.")
+
+        self._fetch_and_print_by_name = ("Kiki-Jiki, Mirror Breaker")
 
         # Encoder rotation
         self._encoder.when_rotated = self._on_rotate

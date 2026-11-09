@@ -238,6 +238,29 @@ class Scryfall:
         with open(random_card_path, 'r', encoding='utf-8') as card_file:
             return json.load(card_file)
 
+    def get_card_by_name(self, name: str) -> Optional[Dict[str, Any]]:
+        """Search for a card by name across all CMC directories.
+
+        Args:
+            name: Name of the card to search for (case-insensitive)
+        """
+        name_lower = name.lower()
+
+        for cmc_dir in self.cards_path.iterdir():
+            if not (cmc_dir.is_dir() and cmc_dir.name.isdigit()):
+                continue
+
+            for card_file in cmc_dir.iterdir():
+                if card_file.is_file() and card_file.suffix == self.CARD_FILE_EXTENSION:
+                    with open(card_file, 'r', encoding='utf-8') as f:
+                        card_data = json.load(f)
+                        if card_data.get('name', '').lower() == name_lower:
+                            return card_data
+
+        logger.warning(f"Card not found by name: {name}")
+        return None
+            
+
     def is_valid_momir_basic_card(self, card: Dict[str, Any]) -> bool:
         """Check if a card is valid for Momir Basic format.
 
