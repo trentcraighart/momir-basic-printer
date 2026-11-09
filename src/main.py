@@ -373,7 +373,7 @@ class MomirApp:
         """Attach callbacks and block until shutdown."""
         logger.info("Momir Basic Printer started.")
 
-        self._fetch_and_print_by_name = ("Kiki-Jiki, Mirror Breaker")
+        self._fetch_and_print("Kiki-Jiki, Mirror Breaker")
 
         # Encoder rotation
         self._encoder.when_rotated = self._on_rotate
