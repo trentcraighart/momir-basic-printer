@@ -35,21 +35,11 @@ def index():
 def read_form():
 
     # Retrieve form data
-    email = request.form.get("userEmail")
-    password = request.form.get("userPassword")
-    contact = request.form.get("userContact")
-    gender = request.form.get("gender")
-
-    # Check whether the newsletter checkbox was selected
-    newsletter = "Yes" if request.form.get("newsletter") else "No"
+    name = request.form.get("name")
 
     # Return the submitted data
     return {
-        "email": email,
-        "contact": contact,
-        "gender": gender,
-        "newsletter": newsletter,
-        "message": "Form submitted successfully!"
+        "name": name
     }
 
 # Configuration
