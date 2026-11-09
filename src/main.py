@@ -449,4 +449,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    flaskApp.run(host="192.168.1.148", port=5000, debug=True)   
+    
+#main()
+
