@@ -22,24 +22,6 @@ from flask import Flask, render_template, request
 #Create Flask app
 flaskApp = Flask(__name__)
 
-# Route to display the HTML form
-@flaskApp.route("/", methods=["GET"])
-def index():
-    return render_template("index.html")
-
-
-# Route to process the submitted form
-@flaskApp.route("/print_card", methods=["POST"])
-def print_card():
-
-    # Retrieve form data
-    name = request.form.get("name")
-
-    # Return the submitted data
-    return {
-        "name": name
-    }
-
 # Configuration
 config = configparser.ConfigParser()
 config_file = Path(__file__).resolve().with_name('config.ini')
@@ -317,12 +299,6 @@ class MomirApp:
     # Main run loop
     # ------------------------------------------------------------------
 
-    def run(self) -> None:
-        """Attach callbacks and block until shutdown."""
-        logger.info("Momir Basic Printer started.")
-
-        self._fetch_and_print("Kiki-Jiki, Mirror Breaker")
-
 
     def shutdown(self) -> None:
         """Clean up hardware resources and exit."""
@@ -340,26 +316,35 @@ class MomirApp:
 
 
 def main() -> None:
-    app = MomirApp()
-
-    flaskApp.run(host="192.168.1.148", port=5000, debug=True)   
+    flaskApp.run(host="192.168.1.65", port=5000, debug=True)   
 
 
-    def _signal_handler(signum, frame):
-        app.shutdown()
 
-    signal.signal(signal.SIGINT, _signal_handler)
-    signal.signal(signal.SIGTERM, _signal_handler)
+app = MomirApp()
+app.initialize()
 
-    try:
-        app.initialize()
-        app.run()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        app.shutdown()
+# Route to display the HTML form
+@flaskApp.route("/", methods=["GET"])
+def index():
+    return render_template("index.html")
+
+
+# Route to process the submitted form
+@flaskApp.route("/read_form", methods=["POST"])
+def read_form():
+
+    # Retrieve form data
+    name = request.form.get("cardName")
+
+    app._fetch_and_print(name)
+
+    # Return the submitted data
+    return {
+        "name": name
+    }
 
 
 if __name__ == "__main__":
     main()
+
 
