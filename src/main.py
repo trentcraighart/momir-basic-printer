@@ -1,7 +1,6 @@
 """Momir Basic Printer - Headless hardware-driven appliance for printing Magic: The Gathering cards.
 
 This module provides an event-driven control loop for:
-- Selecting a CMC via rotary encoder displayed on an OLED screen
 - Printing a random card at the selected CMC via thermal printer on short press
 - Cancelling an active operation via long press
 - Refreshing card data on startup when needed
@@ -18,7 +17,6 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from gpiozero import Button, RotaryEncoder
 from flask import Flask, render_template, request
 
 #Create Flask app
@@ -31,8 +29,8 @@ def index():
 
 
 # Route to process the submitted form
-@flaskApp.route("/read-form", methods=["POST"])
-def read_form():
+@flaskApp.route("/print_card", methods=["POST"])
+def print_card():
 
     # Retrieve form data
     name = request.form.get("name")
@@ -97,43 +95,10 @@ class MomirApp:
         self._cmc_min: int = hardware_config.getint('cmc_min', fallback=0)
         self._cmc_max: int = hardware_config.getint('cmc_max', fallback=16)
         self._cmc: int = self._cmc_min
-        self._encoder_step_offset: int = self._cmc_min
 
         # Services (set up in initialize)
         self.printer: Optional[Any] = None
         self.scryfall: Optional[Any] = None
-        self.display: Optional[Any] = None
-
-        # Hardware inputs
-        hold_time: float = hardware_config.getfloat('hold_time', fallback=1.0)
-        enc_clk: int = hardware_config.getint('gpio_encoder_clk')
-        enc_dt: int = hardware_config.getint('gpio_encoder_dt')
-        enc_sw: int = hardware_config.getint('gpio_encoder_sw')
-
-        # +1 because the range is inclusive on both ends (cmc_min..cmc_max).
-        # e.g. cmc_min=0, cmc_max=16 → 17 distinct values (0,1,...,16).
-        encoder_step_span = self._cmc_max - self._cmc_min + 1
-        try:
-            # gpiozero <= 1.x supports min_steps/max_steps.
-            self._encoder = RotaryEncoder(
-                enc_clk,
-                enc_dt,
-                wrap=True,
-                min_steps=self._cmc_min,
-                max_steps=self._cmc_max,
-            )
-        except TypeError:
-            # gpiozero >= 2.x removed min_steps; map steps via offset.
-            self._encoder = RotaryEncoder(
-                enc_clk,
-                enc_dt,
-                wrap=True,
-                max_steps=encoder_step_span,
-            )
-        self._encoder.steps = self._cmc_to_encoder_steps(self._cmc_min)
-
-        self._button = Button(enc_sw, pull_up=True, hold_time=hold_time)
-        self._held_fired = False
 
         # App UI/runtime text and limits
         self._booting_status: str = app_config.get('booting_status', fallback='Booting...')
@@ -156,12 +121,6 @@ class MomirApp:
         self._shutdown_join_timeout_seconds: float = app_config.getfloat(
             'shutdown_join_timeout_seconds', fallback=5)
 
-    def _cmc_to_encoder_steps(self, cmc: int) -> int:
-        return cmc - self._encoder_step_offset
-
-    def _encoder_steps_to_cmc(self, steps: int) -> int:
-        return steps + self._encoder_step_offset
-
     def _clamp_cmc(self, cmc: int) -> int:
         return max(self._cmc_min, min(cmc, self._cmc_max))
 
@@ -170,16 +129,7 @@ class MomirApp:
     # ------------------------------------------------------------------
 
     def initialize(self) -> None:
-        """Initialize display, printer, and scryfall services."""
-        # Display
-        try:
-            from display import DisplayManager
-            self.display = DisplayManager(hardware_config)
-            self.display.update(cmc=self._cmc, status=self._booting_status)
-            logger.info("Display service initialized.")
-        except Exception as exc:
-            self.display = None
-            logger.error(f"Display service unavailable: {exc}")
+        """Initialize printer and scryfall services."""
 
         # Printer
         try:
@@ -225,27 +175,6 @@ class MomirApp:
 
     def _set_status(self, text: str) -> None:
         logger.debug(f"Status: {text}")
-        if self.display is not None:
-            self.display.set_status(text)
-
-    # ------------------------------------------------------------------
-    # Encoder rotation callback
-    # ------------------------------------------------------------------
-
-    def _on_rotate(self) -> None:
-        # +1 for inclusive range: cmc_min=0, cmc_max=16 → 17 distinct positions.
-        encoder_step_span = self._cmc_max - self._cmc_min + 1
-        # Use modulo to wrap negative/overflow steps correctly
-        wrapped_steps = self._encoder.steps % encoder_step_span
-        cmc = self._encoder_steps_to_cmc(wrapped_steps)
-        
-        # Update encoder steps if they changed due to wrapping
-        if self._encoder.steps != wrapped_steps:
-            self._encoder.steps = wrapped_steps
-        
-        self._cmc = cmc
-        if self.display is not None:
-            self.display.set_cmc(cmc)
 
     # ------------------------------------------------------------------
     # Button callbacks
@@ -285,9 +214,6 @@ class MomirApp:
             self._cancel_event.set()
         else:
             self._cmc = self._cmc_min
-            self._encoder.steps = self._cmc_to_encoder_steps(self._cmc_min)
-            if self.display is not None:
-                self.display.update(cmc=self._cmc, status=self._reset_status)
 
     # ------------------------------------------------------------------
     # Worker (runs in background thread)
@@ -397,16 +323,6 @@ class MomirApp:
 
         self._fetch_and_print("Kiki-Jiki, Mirror Breaker")
 
-        # Encoder rotation
-        self._encoder.when_rotated = self._on_rotate
-
-        # Button: when_held fires after hold_time; when_released distinguishes
-        # short press (held didn't fire) from long press (held already fired).
-        self._button.when_held = self._on_held
-        self._button.when_released = self._on_released
-
-        # Wait for shutdown signal
-        self._shutdown_event.wait()
 
     def shutdown(self) -> None:
         """Clean up hardware resources and exit."""
@@ -416,15 +332,8 @@ class MomirApp:
         if self._worker_thread is not None and self._worker_thread.is_alive():
             self._worker_thread.join(timeout=self._shutdown_join_timeout_seconds)
 
-        if self.display is not None:
-            self.display.clear()
-            self.display.cleanup()
-
         if self.printer is not None:
             self.printer.cleanup()
-
-        self._encoder.close()
-        self._button.close()
 
         self._shutdown_event.set()
         logger.info("Momir Basic Printer stopped.")
@@ -432,6 +341,9 @@ class MomirApp:
 
 def main() -> None:
     app = MomirApp()
+
+    flaskApp.run(host="192.168.1.148", port=5000, debug=True)   
+
 
     def _signal_handler(signum, frame):
         app.shutdown()
@@ -449,7 +361,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    flaskApp.run(host="192.168.1.148", port=5000, debug=True)   
-    
-#main()
+    main()
 
