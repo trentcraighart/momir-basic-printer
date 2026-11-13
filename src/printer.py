@@ -62,6 +62,8 @@ class Printer:
                 'dtr_poll_interval', fallback=0.05)
             self._dtr_timeout_seconds: float = hardware_config.getfloat(
                 'printer_dtr_timeout_seconds', fallback=3.0)
+            self._fragment_height: float = hardware_config.getfloat(
+                'printer_fragment_height', fallback=24)            
         else:
             self.serial_port = '/dev/serial0'
             self.serial_baud_rate = 9600
@@ -70,6 +72,7 @@ class Printer:
             self._dtr_active_high = True
             self._dtr_poll_interval = 0.05
             self._dtr_timeout_seconds = 3.0
+            self._fragment_height = 24
 
         self._dtr_disabled_runtime = not self._dtr_enabled
 
@@ -262,10 +265,10 @@ class Printer:
                         f"Resized card art for printer width: {card_art_path.name} "
                         f"({img.width}x{img.height})"
                     )
-                printer.image(img.copy())
+                printer.image(img.copy(), fragment_height=self._fragment_height)
             return
 
-        printer.image(str(card_art_path))
+        printer.image(str(card_art_path), fragment_height=self._fragment_height)
 
     def print_card(
         self,
