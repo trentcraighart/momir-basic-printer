@@ -201,7 +201,7 @@ class MomirApp:
     # Worker (runs in background thread)
     # ------------------------------------------------------------------
 
-    def _fetch_and_print(self, cmc: int) -> None:
+    def _fetch_and_print_cmc(self, cmc: int) -> None:
         try:
             # --- fetch ---
             self._set_state(AppState.FETCHING)
@@ -315,13 +315,6 @@ class MomirApp:
         logger.info("Momir Basic Printer stopped.")
 
 
-def main() -> None:
-    flaskApp.run(host="192.168.1.65", port=5000, debug=True)   
-
-
-
-app = MomirApp()
-app.initialize()
 
 # Route to display the HTML form
 @flaskApp.route("/", methods=["GET"])
@@ -333,16 +326,21 @@ def index():
 @flaskApp.route("/read_form", methods=["POST"])
 def read_form():
 
-    # Retrieve form data
-    name = request.form.get("cardName")
+	# Retrieve form data
+	name = request.form.get("cardName")
 
-    app._fetch_and_print(name)
+	app = MomirApp()
+	app.initialize()
+	app._fetch_and_print(name)
 
-    # Return the submitted data
-    return {
-        "name": name
-    }
+	# Return the submitted data
+	return {
+		"name": name
+	}
 
+def main() -> None:
+
+	flaskApp.run(host="192.168.1.148", port=5000, debug=True)   
 
 if __name__ == "__main__":
     main()
