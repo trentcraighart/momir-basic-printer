@@ -102,6 +102,8 @@ class MomirApp:
             'no_name_status_template', fallback='No card named {name}')
         self._shutdown_join_timeout_seconds: float = app_config.getfloat(
             'shutdown_join_timeout_seconds', fallback=5)
+        self._local_ip_address: str = app_config.get(
+            'local_ip_address', fallback='192.168.1.65')
 
     def _clamp_cmc(self, cmc: int) -> int:
         return max(self._cmc_min, min(cmc, self._cmc_max))
@@ -298,7 +300,7 @@ def read_form():
 
 
 def main() -> None: 
-    flaskApp.run(host="192.168.1.65", port=5000, debug=True)   
+    flaskApp.run(host=momir_app._local_ip_address, port=5000, debug=True)   
 
 if __name__ == "__main__":
     main()
