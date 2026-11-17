@@ -17,7 +17,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect
 
 #Create Flask app
 flaskApp = Flask(__name__)
@@ -158,44 +158,6 @@ class MomirApp:
     def _set_status(self, text: str) -> None:
         logger.debug(f"Status: {text}")
 
-    # ------------------------------------------------------------------
-    # Button callbacks
-    # ------------------------------------------------------------------
-
-    def _on_held(self) -> None:
-        """Fires when button is held past hold_time — treat as long press."""
-        self._held_fired = True
-        self._on_long_press()
-
-    def _on_released(self) -> None:
-        """Fires on button release. If hold wasn't triggered, treat as short press."""
-        if self._held_fired:
-            self._held_fired = False
-            return
-        self._on_short_press()
-
-    def _on_short_press(self) -> None:
-        """Short press: fetch and print a random card at current CMC."""
-        if self._get_state() != AppState.IDLE:
-            logger.debug("Ignoring short press — operation in progress.")
-            return
-
-        if self.scryfall is None or self.printer is None:
-            self._set_status(self._services_unavailable_status)
-            return
-
-        self._cancel_event.clear()
-        self._worker_thread = threading.Thread(
-            target=self._fetch_and_print, args=(self._cmc,), daemon=True)
-        self._worker_thread.start()
-
-    def _on_long_press(self) -> None:
-        """Long press: cancel active operation or reset to idle."""
-        if self._get_state() != AppState.IDLE:
-            logger.info("Long press — cancelling active operation.")
-            self._cancel_event.set()
-        else:
-            self._cmc = self._cmc_min
 
     # ------------------------------------------------------------------
     # Worker (runs in background thread)
@@ -248,7 +210,7 @@ class MomirApp:
         finally:
             self._set_state(AppState.IDLE)
 
-    def _fetch_and_print(self, name: string) -> None:
+    def _fetch_and_print(self, name: str) -> None:
         try:
             # --- fetch ---
             self._set_state(AppState.FETCHING)
@@ -315,34 +277,29 @@ class MomirApp:
         logger.info("Momir Basic Printer stopped.")
 
 
+momir_app = MomirApp()
+momir_app.initialize()   
 
 # Route to display the HTML form
 @flaskApp.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
 
-
 # Route to process the submitted form
 @flaskApp.route("/read_form", methods=["POST"])
 def read_form():
 
 	# Retrieve form data
-	name = request.form.get("cardName")
+    name = request.form.get("cardName")
 
-	app = MomirApp()
-	app.initialize()
-	app._fetch_and_print(name)
+    momir_app._fetch_and_print(name)
 
-	# Return the submitted data
-	return {
-		"name": name
-	}
+    return redirect("/")
 
-def main() -> None:
 
-	flaskApp.run(host="192.168.1.148", port=5000, debug=True)   
+def main() -> None: 
+    flaskApp.run(host="192.168.1.65", port=5000, debug=True)   
 
 if __name__ == "__main__":
     main()
-
 
