@@ -276,7 +276,7 @@ class Printer:
         cancel_event: Optional[threading.Event] = None,
     ) -> None:
         """Print a Magic: The Gathering card to the thermal printer.
-
+z
         Prints formatted card information including:
         - Name and mana cost
         - Card artwork (if enabled)

@@ -300,7 +300,7 @@ def read_form():
 
 
 def main() -> None: 
-    flaskApp.run(host=momir_app._local_ip_address, port=5000, debug=True)   
+    flaskApp.run(host=momir_app._local_ip_address, port=5000)   
 
 if __name__ == "__main__":
     main()
