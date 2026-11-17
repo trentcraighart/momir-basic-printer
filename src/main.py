@@ -312,7 +312,7 @@ def read_form_creature_cmc():
         logger.error(f"CMC {cmc} is out of bounds ({momir_app._cmc_min}-{momir_app._cmc_max}).")
         return redirect("/")
 
-    momir_app._fetch_and_print_cmc(cmc)
+    momir_app._fetch_and_print_cmc(int(cmc))
 
     return redirect("/")
 
