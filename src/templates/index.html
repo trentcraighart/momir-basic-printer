@@ -22,7 +22,7 @@
 
                         <h2 class="text-center mb-4">Card Print By Name</h2>
 
-                        <form action="{{ url_for('read_form') }}" method="POST">
+                        <form action="{{ url_for('read_form_creature_name') }}" method="POST">
 
                             <!-- Name -->
                             <div class="mb-3">
@@ -43,6 +43,29 @@
                             </button>
 
                         </form>
+
+                        <form action="{{ url_for('read_form_creature_cmc') }}" method="POST">
+
+                            <!-- CMC -->
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Creature CMC</label>
+                                <input
+                                    type="name"
+                                    class="form-control"
+                                    id="name"
+                                    name="cardCmc"
+                                    placeholder="Enter your creature's CMC"
+                                    required>
+                            </div>
+
+                            <button
+                                type="submit"
+                                class="btn btn-primary w-100">
+                                Submit
+                            </button>
+
+                        </form>
+
 
                     </div>
                 </div>

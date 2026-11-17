@@ -288,13 +288,31 @@ def index():
     return render_template("index.html")
 
 # Route to process the submitted form
-@flaskApp.route("/read_form", methods=["POST"])
-def read_form():
+@flaskApp.route("/read_form_creature_name", methods=["POST"])
+def read_form_creature_name():
 
 	# Retrieve form data
     name = request.form.get("cardName")
 
     momir_app._fetch_and_print(name)
+
+    return redirect("/")
+
+@flaskApp.route("/read_form_creature_cmc", methods=["POST"])
+def read_form_creature_cmc():
+
+	# Retrieve form data
+    cmc = request.form.get("cardCmc")
+
+    if not cmc.isdigit():
+        logger.error(f"CMC {cmc} is not a valid integer.")
+        return redirect("/")
+
+    if int(cmc) < momir_app._cmc_min or int(cmc) > momir_app._cmc_max:
+        logger.error(f"CMC {cmc} is out of bounds ({momir_app._cmc_min}-{momir_app._cmc_max}).")
+        return redirect("/")
+
+    momir_app._fetch_and_print_cmc(cmc)
 
     return redirect("/")
 
